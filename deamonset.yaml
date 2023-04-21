@@ -1,0 +1,78 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: nsenter-actions
+  labels:
+    app: nsenter
+data:
+  downgrade: |
+    #!/usr/bin/env bash
+    set -x
+
+    sentinel=/opt/sentinel2
+    if [[ -f $sentinel ]]; then
+      if [[ ! -z "$1" ]]; then
+        echo "received positional argument, forcing cleanup"
+        rm $sentinel || true
+      else
+        echo "Already ran, exiting"
+        exit 0
+      fi
+    fi
+
+    # Wait for apt lock to release
+    while fuser /var/{lib/{dpkg,apt/lists},cache/apt/archives}/lock >/dev/null 2>&1; do sleep 1; done
+
+    # Downgrade to 5.15.0.1003.4
+    kernel_version=5.15.0.1003.4
+    apt-get update
+    apt-get install --no-install-recommends --yes --allow-downgrades linux-azure=$kernel_version linux-image-azure=$kernel_version linux-headers-azure=$kernel_version linux-tools-azure=$kernel_version linux-cloud-tools-azure=$kernel_version
+
+    echo "Setting sentinel and rebooting once"
+    touch $sentinel
+    systemctl reboot
+---
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  name: &name nsenter
+  labels:
+    app: *name
+spec:
+  selector:
+    matchLabels:
+      app: *name
+  template:
+    metadata:
+      labels:
+        app: *name
+    spec:
+      hostNetwork: true
+      hostPID: true
+      containers:
+      - image: docugami.azurecr.io/nsenter:latest
+        imagePullPolicy: Always
+        name: *name
+        args: ["downgrade"]
+        resources:
+          requests:
+            cpu: 100m
+            memory: 100Mi
+          limits:
+            cpu: 100m
+            memory: 100Mi
+        securityContext:
+          privileged: true
+        volumeMounts:
+        - name: actions
+          mountPath: "/opt/actions"
+        - name: hostmount
+          mountPath: "/mnt/actions"
+      volumes:
+      - name: hostmount
+        hostPath:
+          path: /opt/actions
+          type: DirectoryOrCreate
+      - name: actions
+        configMap:
+          name: nsenter-actions

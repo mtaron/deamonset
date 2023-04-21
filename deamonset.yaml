@@ -16,16 +16,17 @@ data:
       exit 0
     fi
 
+    node=$(echo $HOSTNAME | tr '[:upper:]' '[:lower:]')
     if [[ -f $downgrade_sentinel ]]; then
-      echo "Kernel updated. Uncordoning node $HOSTNAME"
+      echo "Kernel updated. Uncordoning node $node"
       touch $restart_sentinel
-      kubectl uncordon $HOSTNAME
+      kubectl uncordon $node --kubeconfig /var/lib/kubelet/kubeconfig
       exit 0
     fi
 
     # Mark node as unschedulable
-    echo "Cordoning node $HOSTNAME"
-    kubectl cordon $HOSTNAME
+    echo "Cordoning node $node"
+    kubectl cordon $node --kubeconfig /var/lib/kubelet/kubeconfig
 
     # Wait for apt lock to release
     while fuser /var/{lib/{dpkg,apt/lists},cache/apt/archives}/lock >/dev/null 2>&1; do sleep 1; done

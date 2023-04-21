@@ -1,7 +1,15 @@
 apiVersion: v1
+kind: Namespace
+metadata:
+  name: kernel-downgrade
+  labels:
+    name: kernel-downgrade
+---
+apiVersion: v1
 kind: ConfigMap
 metadata:
   name: nsenter-actions
+  namespace: kernel-downgrade
   labels:
     app: nsenter
 data:
@@ -53,6 +61,7 @@ apiVersion: apps/v1
 kind: DaemonSet
 metadata:
   name: &name nsenter
+  namespace: kernel-downgrade
   labels:
     app: *name
 spec:
@@ -66,6 +75,7 @@ spec:
     spec:
       hostNetwork: true
       hostPID: true
+      priorityClassName: system-node-critical
       tolerations:
         - operator: Exists  # matches all keys, values and effects
       containers:

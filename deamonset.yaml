@@ -9,16 +9,23 @@ data:
     #!/usr/bin/env bash
     set -x
 
-    sentinel=/opt/sentinel
-    if [[ -f $sentinel ]]; then
-      if [[ ! -z "$1" ]]; then
-        echo "received positional argument, forcing cleanup"
-        rm $sentinel || true
-      else
-        echo "Already ran, exiting"
-        exit 0
-      fi
+    downgrade_sentinel=/opt/downgrade-sentinel
+    restart_sentinel=/opt/restart-sentinel
+    if [[ -f $restart_sentinel ]]; then
+      echo "Already restarted, exiting"
+      exit 0
     fi
+
+    if [[ -f $downgrade_sentinel ]]; then
+      echo "Kernel updated. Uncordoning node $HOSTNAME"
+      touch $restart_sentinel
+      kubectl uncordon $HOSTNAME
+      exit 0
+    fi
+
+    # Mark node as unschedulable
+    echo "Cordoning node $HOSTNAME"
+    kubectl cordon $HOSTNAME
 
     # Wait for apt lock to release
     while fuser /var/{lib/{dpkg,apt/lists},cache/apt/archives}/lock >/dev/null 2>&1; do sleep 1; done
@@ -37,9 +44,9 @@ data:
 
     update-grub
 
-    echo "Setting sentinel and rebooting once"
-    touch $sentinel
-    systemctl reboot
+    echo "Setting downgrade sentinel and rebooting once"
+    touch $downgrade_sentinel
+    systemctl reboot --force
 ---
 apiVersion: apps/v1
 kind: DaemonSet
@@ -58,6 +65,8 @@ spec:
     spec:
       hostNetwork: true
       hostPID: true
+      tolerations:
+        - operator: Exists  # matches all keys, values and effects
       containers:
       - image: docugami.azurecr.io/nsenter:latest
         imagePullPolicy: Always

@@ -9,7 +9,7 @@ data:
     #!/usr/bin/env bash
     set -x
 
-    sentinel=/opt/sentinel2
+    sentinel=/opt/sentinel
     if [[ -f $sentinel ]]; then
       if [[ ! -z "$1" ]]; then
         echo "received positional argument, forcing cleanup"
@@ -27,6 +27,15 @@ data:
     kernel_version=5.15.0.1003.4
     apt-get update
     apt-get install --no-install-recommends --yes --allow-downgrades linux-azure=$kernel_version linux-image-azure=$kernel_version linux-headers-azure=$kernel_version linux-tools-azure=$kernel_version linux-cloud-tools-azure=$kernel_version
+
+    # Set grub entrypoint to saved
+    sed -e 's|GRUB_DEFAULT=0|GRUB_DEFAULT=saved|g' -i /etc/default/grub
+
+    # Set default kernel to the old kernel
+    # Use 'cat /boot/grub/grub.cfg' to find the menu path
+    grub-set-default 'Advanced options for Ubuntu>Ubuntu, with Linux 5.15.0-1003-azure'
+
+    update-grub
 
     echo "Setting sentinel and rebooting once"
     touch $sentinel

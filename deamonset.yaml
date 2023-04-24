@@ -60,6 +60,39 @@ data:
     echo "Setting downgrade sentinel and rebooting once"
     touch $downgrade_sentinel
     systemctl reboot --force
+  upgrade: |
+    #!/usr/bin/env bash
+    set -x
+
+    upgrade_sentinel=/opt/upgrade-sentinel
+    restart_sentinel=/opt/restart-sentinel
+    if [[ -f $restart_sentinel ]]; then
+      echo "Already restarted, exiting"
+      exit 0
+    fi
+
+    node=$(echo $HOSTNAME | tr '[:upper:]' '[:lower:]')
+    if [[ -f $upgrade_sentinel ]]; then
+      echo "Kernel updated to $(uname -srm). Uncordoning node $node"
+      touch $restart_sentinel
+      kubectl uncordon $node --kubeconfig /var/lib/kubelet/kubeconfig
+      kubectl --kubeconfig /var/lib/kubelet/kubeconfig label node $node docugami.com/kernel-upgrade=complete
+      exit 0
+    fi
+
+    # Mark node as unschedulable
+    echo "Cordoning node $node"
+    kubectl cordon $node --kubeconfig /var/lib/kubelet/kubeconfig
+    kubectl --kubeconfig /var/lib/kubelet/kubeconfig label node $node docugami.com/kernel-upgrade=started
+
+    # Wait for apt lock to release
+    while fuser /var/{lib/{dpkg,apt/lists},cache/apt/archives}/lock >/dev/null 2>&1; do sleep 1; done
+
+    DEBIAN_FRONTEND=noninteractive apt-get update && apt-get dist-upgrade --yes
+
+    echo "Setting upgrade sentinel and rebooting once"
+    touch $upgrade_sentinel
+    systemctl reboot --force
 ---
 apiVersion: apps/v1
 kind: DaemonSet
@@ -86,7 +119,7 @@ spec:
       - image: docugami.azurecr.io/nsenter:latest
         imagePullPolicy: Always
         name: *name
-        args: ["downgrade"]
+        args: ["upgrade"]
         resources:
           requests:
             cpu: 100m

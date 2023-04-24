@@ -10,3 +10,13 @@ https://kubernetes.io/docs/reference/kubectl/#in-cluster-authentication-and-name
 az acr login -n docugami
 docker build -t docugami.azurecr.io/nsenter .
 docker push docugami.azurecr.io/nsenter
+
+helm repo add nvidia https://helm.ngc.nvidia.com/nvidia && helm repo update
+helm upgrade \
+    --values gpu-operator.yaml \
+    --install \
+    --create-namespace \
+    --namespace gpu-operator \
+    --disable-openapi-validation \
+    --version 23.3.1 \
+    gpu-operator nvidia/gpu-operator

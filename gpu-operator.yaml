@@ -1,0 +1,7 @@
+operator:
+  # upgrade CRD on chart upgrade, requires --disable-openapi-validation flag
+  # to be passed during helm upgrade.
+  upgradeCRD: true
+
+driver:
+  enabled: false

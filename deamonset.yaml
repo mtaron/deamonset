@@ -28,17 +28,17 @@ data:
 
     node=$(echo $HOSTNAME | tr '[:upper:]' '[:lower:]')
     if [[ -f $downgrade_sentinel ]]; then
-      echo "Kernel updated. Uncordoning node $node"
+      echo "Kernel updated to $(uname -a). Uncordoning node $node"
       touch $restart_sentinel
       kubectl uncordon $node --kubeconfig /var/lib/kubelet/kubeconfig
-      kubectl --kubeconfig /var/lib/kubelet/kubeconfig label node $node docugami.com/kernel-downgrade=complete
+      kubectl --overwrite --kubeconfig /var/lib/kubelet/kubeconfig label node $node docugami.com/kernel-downgrade=complete
       exit 0
     fi
 
     # Mark node as unschedulable
     echo "Cordoning node $node"
     kubectl cordon $node --kubeconfig /var/lib/kubelet/kubeconfig
-    kubectl --kubeconfig /var/lib/kubelet/kubeconfig label node $node docugami.com/kernel-downgrade=started
+    kubectl --overwrite --kubeconfig /var/lib/kubelet/kubeconfig label node $node docugami.com/kernel-downgrade=started
 
     # Wait for apt lock to release
     while fuser /var/{lib/{dpkg,apt/lists},cache/apt/archives}/lock >/dev/null 2>&1; do sleep 1; done
@@ -73,17 +73,17 @@ data:
 
     node=$(echo $HOSTNAME | tr '[:upper:]' '[:lower:]')
     if [[ -f $upgrade_sentinel ]]; then
-      echo "Kernel updated to $(uname -srm). Uncordoning node $node"
+      echo "Kernel updated to $(uname -a). Uncordoning node $node"
       touch $restart_sentinel
       kubectl uncordon $node --kubeconfig /var/lib/kubelet/kubeconfig
-      kubectl --kubeconfig /var/lib/kubelet/kubeconfig label node $node docugami.com/kernel-upgrade=complete
+      kubectl --overwrite --kubeconfig /var/lib/kubelet/kubeconfig label node $node docugami.com/kernel-upgrade=complete
       exit 0
     fi
 
     # Mark node as unschedulable
     echo "Cordoning node $node"
     kubectl cordon $node --kubeconfig /var/lib/kubelet/kubeconfig
-    kubectl --kubeconfig /var/lib/kubelet/kubeconfig label node $node docugami.com/kernel-upgrade=started
+    kubectl --overwrite --kubeconfig /var/lib/kubelet/kubeconfig label node $node docugami.com/kernel-upgrade=started
 
     # Wait for apt lock to release
     while fuser /var/{lib/{dpkg,apt/lists},cache/apt/archives}/lock >/dev/null 2>&1; do sleep 1; done

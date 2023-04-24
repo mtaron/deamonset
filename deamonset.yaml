@@ -91,7 +91,12 @@ data:
     while fuser /var/{lib/{dpkg,apt/lists},cache/apt/archives}/lock >/dev/null 2>&1; do sleep 1; done
 
     echo 'debconf debconf/frontend select Noninteractive' | debconf-set-selections
-    apt-get update && apt-get dist-upgrade --yes
+
+    # Option 1: dist-update
+    #apt-get update && apt-get dist-upgrade --yes
+
+    # Option 2: upgrade
+    apt-get update && apt-get upgrade -o Dpkg::Options::="--force-confold" --yes
 
     echo "Setting upgrade sentinel and rebooting once"
     touch $upgrade_sentinel
